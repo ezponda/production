@@ -1,6 +1,9 @@
 import json
+import uuid
 import numpy as np
 from typing import List, Dict, Tuple
+
+OrderItem = Tuple[int, float, float, float]  # (grade, tons, price, priority)
 
 
 class Plant:
@@ -18,22 +21,73 @@ class Plant:
             only_consecutive: Dict[int, int],
             only_predecessor: Dict[int, int],
             grades_after_10_days: List[int],
-            orders: Dict[int, List[Tuple[int, float, float, float]]],
+            orders: Dict[str, Dict[str, List[OrderItem]]],
     ):
-        self.__n_grades = n_grades
-        self.__n_units = n_units
-        self.__prod_flow = np.array(prod_flow)
-        self.__man_cost = np.array(man_cost)
-        self.__not_allowed_transitions = not_allowed_transitions
-        self.__unique_grades = set(unique_grades)
-        self.__unique_unit = unique_unit
-        self.__s_min = np.array(s_min)
-        self.__t_min = np.array(t_min)
-        self.__only_consecutive = only_consecutive
-        self.__only_predecessor = only_predecessor
-        self.__grades_after_10_days = set(grades_after_10_days)
-        self.__orders = orders
+        self._n_grades = n_grades
+        self._n_units = n_units
+        self._prod_flow = np.array(prod_flow)
+        self._man_cost = np.array(man_cost)
+        self._not_allowed_transitions = not_allowed_transitions
+        self._unique_grades = set(unique_grades)
+        self._unique_unit = unique_unit
+        self._s_min = np.array(s_min)
+        self._t_min = np.array(t_min)
+        self._only_consecutive = only_consecutive
+        self._only_predecessor = only_predecessor
+        # grades that can only be produced after only one grade
+        self._single_predecessor = set([cons for cons, pred in only_consecutive.items()])
+        self._grades_after_10_days = set(grades_after_10_days)
+        # Can be updated during 30 - days planification
+        # TODO: Put orders out of Plant class
+        self.orders = orders
 
+    @property
+    def n_grades(self):
+        return self._n_grades
+
+    @property
+    def n_units(self):
+        return self._n_units
+
+    @property
+    def prod_flow(self):
+        return self._prod_flow
+
+    @property
+    def man_cost(self):
+        return self._man_cost
+
+    @property
+    def not_allowed_transitions(self):
+        return self._not_allowed_transitions
+
+    @property
+    def unique_grades(self):
+        return self._unique_grades
+
+    @property
+    def unique_unit(self):
+        return self._unique_unit
+
+    @property
+    def s_min(self):
+        return self._s_min
+
+    @property
+    def t_min(self):
+        return self._t_min
+
+    @property
+    def only_consecutive(self):
+        return self._only_consecutive
+
+    @property
+    def only_predecessor(self):
+        return self._only_predecessor
+
+    @property
+    def grades_after_10_days(self):
+        return self._grades_after_10_days
 
     @staticmethod
     def from_json_file(file_path):
@@ -86,10 +140,10 @@ class Plant:
 class RandomPlantData:
 
     @classmethod
-    def generate_random_data(cls, n_grades=20, n_units=3, prod_flow_lims=(1, 10),
-                             man_cost_lims=(1, 11), n_not_allowed_max=4, t_min_lims=(1, 7),
-                             s_min_lims=(2, 15), only_consecutive_p=0.25,
-                             n_orders=100, orders_tons_lims=(5, 15), orders_price_lims=(12, 50),
+    def generate_random_data(cls, n_grades=20, n_units=3, prod_flow_lims=(40, 250),
+                             man_cost_lims=(5, 30), n_not_allowed_max=4, t_min_lims=(1, 12),
+                             s_min_lims=(5, 80), only_consecutive_p=0.25,
+                             n_orders=100, orders_tons_lims=(100, 2000), orders_price_lims=(50, 1000),
                              grades_after_10_days_max=10, unique_unit=0):
 
         plant_data = {}
@@ -98,16 +152,11 @@ class RandomPlantData:
 
         # production flow (tons / hour)
         prod_flow = RandomPlantData.generate_rand(prod_flow_lims, n_grades, n_units)
-        plant_data['prod_flow'] = prod_flow.flatten().tolist()
+        plant_data['prod_flow'] = prod_flow.tolist()
 
         # manufacturing cost ($ / hour)
         man_cost = RandomPlantData.generate_rand(man_cost_lims, n_grades, n_units)
-        plant_data['man_cost'] = man_cost.flatten().tolist()
-
-        # not allowed transitions
-        not_allowed_transitions = RandomPlantData.generate_random_not_allowed_transitions(
-            n_grades, n_not_allowed_max)
-        plant_data['not_allowed_transitions'] = not_allowed_transitions
+        plant_data['man_cost'] = man_cost.tolist()
 
         # minimum duration
         t_min = RandomPlantData.generate_rand(t_min_lims, n_grades, 1)
@@ -126,9 +175,21 @@ class RandomPlantData:
         plant_data['only_consecutive'] = only_consecutive
         plant_data['only_predecessor'] = only_predecessor
 
-        orders = RandomPlantData.generate_random_orders(
+        # not allowed transitions
+        not_allowed_transitions = RandomPlantData.generate_random_not_allowed_transitions(
+            n_grades, n_not_allowed_max, only_consecutive)
+        plant_data['not_allowed_transitions'] = not_allowed_transitions
+
+        firm_orders = RandomPlantData.generate_random_orders(
             n_orders, n_grades, orders_tons_lims, orders_price_lims)
-        plant_data['orders'] = orders
+        estimated_orders = RandomPlantData.generate_random_orders(
+            n_orders, n_grades, orders_tons_lims, orders_price_lims)
+
+        plant_data['orders'] = {
+            'firm': firm_orders,
+            'estimated': estimated_orders
+        }
+        # estimated
 
         # Grades only after 10 days
         n_after_10_days = np.random.randint(1, grades_after_10_days_max)
@@ -168,8 +229,7 @@ class RandomPlantData:
             if p < only_consecutive_p:
                 # consecutive grade
                 possible_consecutive = list(
-                    set(range(n_grades)) - set([grade]) -
-                    set([only_predecessor.get(grade)])
+                    set(range(n_grades)) - set([grade]) - set([only_predecessor.get(grade)])
                 )
                 consecutive = int(np.random.choice(possible_consecutive))
                 only_consecutive[grade] = consecutive
@@ -181,7 +241,8 @@ class RandomPlantData:
     def generate_random_orders(n_orders, n_grades, orders_tons_lims, orders_price_lims):
         orders = {}
         # order = (grade, tons, price, priority)
-        for order_id in range(n_orders):
+        for _ in range(n_orders):
+            order_id = str(uuid.uuid4())
             tons = RandomPlantData.generate_rand(orders_tons_lims)
             price = RandomPlantData.generate_rand(orders_price_lims)
             priority = np.random.rand()
@@ -191,13 +252,15 @@ class RandomPlantData:
         return orders
 
     @staticmethod
-    def generate_random_not_allowed_transitions(n_grades, n_not_allowed_max):
+    def generate_random_not_allowed_transitions(n_grades, n_not_allowed_max, only_consecutive):
         not_allowed_transitions = {}
         for grade in range(n_grades):
             n_not_allowed = np.random.randint(0, n_not_allowed_max)
             not_allowed_grades = np.random.choice(
                 list(set(range(n_grades)) - set([grade])),
                 size=(n_not_allowed,), replace=False
-            )
-            not_allowed_transitions[grade] = not_allowed_grades.tolist()
+            ).tolist()
+            if grade in only_consecutive and only_consecutive[grade] in not_allowed_grades:
+                not_allowed_grades.remove(only_consecutive[grade])
+            not_allowed_transitions[grade] = not_allowed_grades
         return not_allowed_transitions
