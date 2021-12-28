@@ -11,6 +11,7 @@ class Plant:
             self,
             n_grades: int,
             n_units: int,
+            intervals_per_day: int,
             prod_flow: List[float],
             man_cost: List[float],
             not_allowed_transitions: Dict[int, List[int]],
@@ -25,6 +26,8 @@ class Plant:
     ):
         self._n_grades = n_grades
         self._n_units = n_units
+        self._grades = list(range(self._n_grades))
+        self._intervals_per_day = intervals_per_day
         self._prod_flow = np.array(prod_flow)
         self._man_cost = np.array(man_cost)
         self._not_allowed_transitions = not_allowed_transitions
@@ -40,6 +43,7 @@ class Plant:
         # Can be updated during 30 - days planification
         # TODO: Put orders out of Plant class
         self.orders = orders
+        # TODO: Modify t_min and s_min with unique_grades
 
     @property
     def n_grades(self):
@@ -48,6 +52,14 @@ class Plant:
     @property
     def n_units(self):
         return self._n_units
+
+    @property
+    def grades(self):
+        return self._grades
+
+    @property
+    def intervals_per_day(self):
+        return self._intervals_per_day
 
     @property
     def prod_flow(self):
@@ -103,6 +115,7 @@ class Plant:
         plant = Plant(
             n_grades=plant_data.get('n_grades'),
             n_units=plant_data.get('n_units'),
+            intervals_per_day=plant_data.get('intervals_per_day'),
             prod_flow=plant_data.get('prod_flow'),
             man_cost=plant_data.get('man_cost'),
             not_allowed_transitions=plant_data.get('not_allowed_transitions'),
@@ -122,6 +135,7 @@ class Plant:
         plant = Plant(
             n_grades=plant_data.get('n_grades'),
             n_units=plant_data.get('n_units'),
+            intervals_per_day=plant_data.get('intervals_per_day'),
             prod_flow=plant_data.get('prod_flow'),
             man_cost=plant_data.get('man_cost'),
             not_allowed_transitions=plant_data.get('not_allowed_transitions'),
@@ -136,19 +150,56 @@ class Plant:
         )
         return plant
 
+    def is_possible_transition(self, grade, time, unit, actual_grade):
+        """
+        returns True if grade can be produced after actual_grade in unit and time.
+        """
+        if time <= 10 * self.intervals_per_day and unit in self.grades_after_10_days:
+            return False
+        elif grade in self.not_allowed_transitions.get(actual_grade, []):
+            return False
+        elif grade in self.only_predecessor and self.only_predecessor[grade] != actual_grade:
+            return False
+        elif unit == self.unique_unit and grade in self.unique_grades:
+            return False
+        else:
+            return True
+
+    def calculate_possible_transitions(self, time, unit, actual_grade):
+        """
+        returns a list of grades that can be produced after actual_grade in unit and time.
+        """
+        possible_transitions = []
+        for grade in self.grades:
+            if self.is_possible_transition(grade, time, unit, actual_grade):
+                possible_transitions.append(grade)
+        return possible_transitions
+
+    @staticmethod
+    def group_orders_by_grade(orders):
+        grade2orders = {}
+        for order_id, order in orders.items():
+            (grade, tons, price, priority) = order
+            if grade in grade2orders:
+                grade2orders[grade].add(order_id)
+            else:
+                grade2orders[grade] = set([order_id])
+        return grade2orders
+
 
 class RandomPlantData:
 
     @classmethod
-    def generate_random_data(cls, n_grades=20, n_units=3, prod_flow_lims=(40, 250),
-                             man_cost_lims=(5, 30), n_not_allowed_max=4, t_min_lims=(1, 12),
-                             s_min_lims=(5, 80), only_consecutive_p=0.25,
-                             n_orders=100, orders_tons_lims=(100, 2000), orders_price_lims=(50, 1000),
+    def generate_random_data(cls, n_grades=20, n_units=3, intervals_per_day=24, prod_flow_lims=(30, 250),
+                             man_cost_lims=(10, 60), n_not_allowed_max=4, t_min_lims=(1, 12),
+                             s_min_lims=(5, 60), only_consecutive_p=0.25,
+                             n_orders=1000, orders_tons_lims=(100, 2000), orders_price_lims=(50, 1000),
                              grades_after_10_days_max=10, unique_unit=0):
 
         plant_data = {}
         plant_data['n_grades'] = n_grades
         plant_data['n_units'] = n_units
+        plant_data['intervals_per_day'] = intervals_per_day
 
         # production flow (tons / hour)
         prod_flow = RandomPlantData.generate_rand(prod_flow_lims, n_grades, n_units)
@@ -189,7 +240,6 @@ class RandomPlantData:
             'firm': firm_orders,
             'estimated': estimated_orders
         }
-        # estimated
 
         # Grades only after 10 days
         n_after_10_days = np.random.randint(1, grades_after_10_days_max)
