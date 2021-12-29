@@ -1,7 +1,7 @@
 import numpy as np
 from typing import List, Dict, Tuple
 from .plant import Plant
-from .optimization.greedy_simple import PlantGreedySimple
+from .optimization.greedy_simple_group import PlantGreedySimpleGroup
 
 
 class Planification:
@@ -38,7 +38,7 @@ class Planification:
         raise NotImplementedError('Method not implemented!')
 
     def calculate_benefits(self):
-        raise self.calculate_benefits() - self.calculate_cost()
+        return self.calculate_revenue() - self.calculate_cost()
 
     def calculate_revenue(self):
         return sum([order[-1] for unit, order_list in self.orders_plan.items() for order in order_list])
@@ -56,7 +56,7 @@ class Planification:
         return cost
 
     def calculate_initial_solution(self):
-        model = PlantGreedySimple(
+        model = PlantGreedySimpleGroup(
             plant=self.plant,
             horizon=self.horizon,
         )

@@ -11,7 +11,7 @@ def _check_unique_units(plant, planification):
 
 
 def test_end_to_end_runs():
-    for i in range(10):
+    for i in range(4):
         plant_data = RandomPlantData.generate_random_data(seed=i)
         plant = Plant.from_dictionary(plant_data)
         planification = Planification(

@@ -45,6 +45,9 @@ class UnitGreedySimple:
         cost = man_cost * time
         return time, cost
 
+    def calculate_min_transition_time(self, grade):
+        return self.plant.t_min[grade]
+
     def calculate_order_time_cost(self, tons, grade):
         prod_flow = self.plant.prod_flow[grade, self.unit]
         man_cost = self.plant.man_cost[grade, self.unit]
@@ -60,7 +63,7 @@ class UnitGreedySimple:
         time, cost = self.calculate_order_time_cost(tons, grade)
         time_low = min(time_reg_left, time)
         time_normal = time - time_low
-        price_reduction = (0.8 * (time_low / time) + (time_normal / time))
+        price_reduction = (0.7 * (time_low / time) + (time_normal / time))
         revenue = price * price_reduction
         benefit = revenue - cost
         ratio = benefit / time
@@ -125,7 +128,7 @@ class UnitGreedySimple:
         time = 0
 
         while time < self.horizon:
-            if time - self.time_last_grade_start < self.time_left_grade_change:
+            if self.time_left_grade_change > 0 and actual_grade != -1:
                 possible_transitions = [actual_grade]
             else:
                 possible_transitions = self.plant.calculate_possible_transitions(
@@ -158,15 +161,21 @@ class UnitGreedySimple:
                 )
                 self.time_last_grade_start = time
 
-                self.time_left_grade_change, _ = self.calculate_min_stock_time_cost(
+                t_min = self.calculate_min_transition_time(grade)
+                t_stock_min, _ = self.calculate_min_stock_time_cost(
                     grade)
+
+                self.time_left_grade_change = max(t_min, t_stock_min)
+                self.time_left_grade_change = max(
+                    0, order_time - self.time_left_grade_change
+                )
                 self.grades_plan.append((grade, time))
             else:
                 self.time_reg_left = max(
                     0, self.time_reg_left - order_time
                 )
                 self.time_left_grade_change = max(
-                    0, self.time_reg - self.time_last_grade_start
+                    0, self.time_left_grade_change - order_time
                 )
 
             stock_tons = (math.ceil(order_time) - order_time) * self.plant.prod_flow[grade, self.unit]

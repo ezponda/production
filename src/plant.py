@@ -7,13 +7,48 @@ OrderItem = Tuple[int, float, float, float]  # (grade, tons, price, priority)
 
 
 class Plant:
+    """
+    A class to represent a manufacturing plant.
+
+    ...
+
+    Attributes
+    ----------
+    n_grades: int
+        number of different grades (products)
+    n_units: int
+        number of units
+    intervals_per_day: int
+        hour intervals => intervals_per_day = 24
+    prod_flow: n_grades x n_units np.array (float)
+        production flow (tons/hour).
+    man_cost: n_grades x n_units np.array (float)
+        manufacturing cost per hour (transformed from tonne).
+    not_allowed_transitions: Dict[int, List[int]]
+        dictionary key is every grade (int in range(n_grades) )
+        and value is a list of not allowed grades (transition to new grade)
+    unique_grades: List[int]
+        List of grades that only can be manufactured in unique_unit (Point 6 in doc)
+    unique_unit: int
+        Unit that is the only one that can produce unique_grades
+    s_min: n_grades x 1 np.array (float)
+        Minimum safety stock per grade
+    t_min: n_grades x 1 np.array (float)
+        Minimum production duration per grade
+    only_consecutive: Dict[int, int]
+    only_predecessor: Dict[int, int]
+    grades_after_10_days: List[int]
+        List of grades that can be produced only after day 10.
+    orders: Dict[str, Dict[str, List[OrderItem]]] # OrderItem :(grade, tons, price, priority)
+        order_id : str -> OrderItem :(grade, tons, price, priority)
+    """
     def __init__(
             self,
             n_grades: int,
             n_units: int,
             intervals_per_day: int,
-            prod_flow: List[float],
-            man_cost: List[float],
+            prod_flow: List[List[float]],
+            man_cost: List[List[float]],
             not_allowed_transitions: Dict[int, List[int]],
             unique_grades: List[int],
             unique_unit: int,
@@ -98,6 +133,10 @@ class Plant:
         return self._only_predecessor
 
     @property
+    def single_predecessor(self):
+        return self._single_predecessor
+
+    @property
     def grades_after_10_days(self):
         return self._grades_after_10_days
 
@@ -160,7 +199,7 @@ class Plant:
             return False
         elif grade in self.only_predecessor and self.only_predecessor[grade] != actual_grade:
             return False
-        elif unit == self.unique_unit and grade in self.unique_grades:
+        elif unit != self.unique_unit and grade in self.unique_grades:
             return False
         else:
             return True
@@ -171,7 +210,9 @@ class Plant:
         """
         possible_transitions = []
         for grade in self.grades:
-            if self.is_possible_transition(grade, time, unit, actual_grade):
+            if grade == actual_grade:
+                possible_transitions.append(grade)
+            elif self.is_possible_transition(grade, time, unit, actual_grade):
                 possible_transitions.append(grade)
         return possible_transitions
 
@@ -188,13 +229,22 @@ class Plant:
 
 
 class RandomPlantData:
+    """
+    Generate random plant data for trials
+    """
 
     @classmethod
-    def generate_random_data(cls, n_grades=20, n_units=3, intervals_per_day=24, prod_flow_lims=(30, 250),
-                             man_cost_lims=(10, 60), n_not_allowed_max=4, t_min_lims=(1, 12),
+    def generate_random_data(cls, seed=None, n_grades=20, n_units=3, intervals_per_day=24, prod_flow_lims=(30, 250),
+                             man_cost_lims=(10, 60), n_not_allowed_max=4, t_min_lims=(1, 15),
                              s_min_lims=(5, 60), only_consecutive_p=0.25,
-                             n_orders=1000, orders_tons_lims=(100, 2000), orders_price_lims=(50, 1000),
+                             n_orders=2500, orders_tons_lims=(200, 3000), orders_price_lims=(50, 1000),
                              grades_after_10_days_max=10, unique_unit=0):
+        """
+        Generate random plant data for trials
+        """
+
+        if seed is not None:
+            np.random.seed(seed)
 
         plant_data = {}
         plant_data['n_grades'] = n_grades
