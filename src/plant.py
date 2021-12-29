@@ -308,8 +308,8 @@ class RandomPlantData:
         return plant_data
 
     @classmethod
-    def generate_random_data_save(cls, file_name):
-        plant_data = cls.generate_random_data()
+    def generate_random_data_save(cls, file_name, opts={}):
+        plant_data = cls.generate_random_data(**opts)
         with open(file_name, 'w') as fp:
             json.dump(plant_data, fp, indent=4)
         return
