@@ -28,8 +28,6 @@ class UnitGreedySimpleGroup:
         self.grade2orders = self.plant.group_orders_by_grade(self.orders)
         self.grades = list(range(plant.n_grades))
 
-        self.time_reg = 3  # time before transitions operates at 100%
-
         self.time_last_grade_start = 0
         self.time_left_grade_change = 0  # time before we can make a transition
         self.time_reg_left = 0  # time before unit operates at 100%
@@ -130,7 +128,7 @@ class UnitGreedySimpleGroup:
 
             grade_change = (grade != actual_grade)
             if grade_change:
-                time_reg_left = self.time_reg
+                time_reg_left = self.plant.t_transition[actual_grade, grade]
                 time_left = self.calculate_min_transition_time(grade)
             else:
                 time_reg_left = self.time_reg_left
@@ -163,7 +161,7 @@ class UnitGreedySimpleGroup:
     def update_restrictions_times(self, grade, grade_change, order_time_group):
         if grade_change:
             self.time_reg_left = max(
-                0, self.time_reg - order_time_group
+                0, self.plant.t_transition[self.actual_grade, grade] - order_time_group
             )
             self.time_last_grade_start = self.time
 

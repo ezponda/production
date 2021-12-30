@@ -8,40 +8,41 @@ OrderItem = Tuple[int, float, float, float]  # (grade, tons, price, priority)
 
 class Plant:
     """
-    A class to represent a manufacturing plant.
+     A class to represent a manufacturing plant.
 
-    ...
-
-    Attributes
-    ----------
-    n_grades: int
-        number of different grades (products)
-    n_units: int
-        number of units
-    intervals_per_day: int
-        hour intervals => intervals_per_day = 24
-    prod_flow: n_grades x n_units np.array (float)
-        production flow (tons/hour).
-    man_cost: n_grades x n_units np.array (float)
-        manufacturing cost per hour (transformed from tonne).
-    not_allowed_transitions: Dict[int, List[int]]
-        dictionary key is every grade (int in range(n_grades) )
-        and value is a list of not allowed grades (transition to new grade)
-    unique_grades: List[int]
-        List of grades that only can be manufactured in unique_unit (Point 6 in doc)
-    unique_unit: int
-        Unit that is the only one that can produce unique_grades
-    s_min: n_grades x 1 np.array (float)
-        Minimum safety stock per grade
-    t_min: n_grades x 1 np.array (float)
-        Minimum production duration per grade
-    only_consecutive: Dict[int, int]
-    only_predecessor: Dict[int, int]
-    grades_after_10_days: List[int]
-        List of grades that can be produced only after day 10.
-    orders: Dict[str, Dict[str, List[OrderItem]]] # OrderItem :(grade, tons, price, priority)
-        order_id : str -> OrderItem :(grade, tons, price, priority)
-    """
+     ...
+     Attributes
+     ----------
+     n_grades: int
+         number of different grades (products)
+     n_units: int
+         number of units
+     intervals_per_day: int
+         hour intervals => intervals_per_day = 24
+     prod_flow: n_grades x n_units np.array (float)
+         production flow (tons/hour).
+     man_cost: n_grades x n_units np.array (float)
+         manufacturing cost per hour (transformed from tonne).
+     t_transition: n_grades x n_grades np.array (float)
+         A -> B transition implies that t_transition[A, B] hours, grade B will be produced with lower quality.
+     not_allowed_transitions: Dict[int, List[int]]
+         dictionary key is every grade (int in range(n_grades) )
+         and value is a list of not allowed grades (transition to new grade)
+     unique_grades: List[int]
+         List of grades that only can be manufactured in unique_unit (Point 6 in doc)
+     unique_unit: int
+         Unit that is the only one that can produce unique_grades
+     s_min: n_grades x 1 np.array (float)
+         Minimum safety stock per grade
+     t_min: n_grades x 1 np.array (float)
+         Minimum production duration per grade
+     only_consecutive: Dict[int, int]
+     only_predecessor: Dict[int, int]
+     grades_after_10_days: List[int]
+         List of grades that can be produced only after day 10.
+     orders: Dict[str, Dict[str, List[OrderItem]]] # OrderItem :(grade, tons, price, priority)
+         order_id : str -> OrderItem :(grade, tons, price, priority)
+     """
     def __init__(
             self,
             n_grades: int,
@@ -49,6 +50,7 @@ class Plant:
             intervals_per_day: int,
             prod_flow: List[List[float]],
             man_cost: List[List[float]],
+            t_transition: List[List[float]],
             not_allowed_transitions: Dict[int, List[int]],
             unique_grades: List[int],
             unique_unit: int,
@@ -65,6 +67,7 @@ class Plant:
         self._intervals_per_day = intervals_per_day
         self._prod_flow = np.array(prod_flow)
         self._man_cost = np.array(man_cost)
+        self._t_transition = np.array(t_transition)
         self._not_allowed_transitions = not_allowed_transitions
         self._unique_grades = set(unique_grades)
         self._unique_unit = unique_unit
@@ -78,7 +81,8 @@ class Plant:
         # Can be updated during 30 - days planification
         # TODO: Put orders out of Plant class
         self.orders = orders
-        # TODO: Modify t_min and s_min with unique_grades
+        # Modify t_min in unique_grades
+        self.update_unique_grades_t_min()
 
     @property
     def n_grades(self):
@@ -103,6 +107,10 @@ class Plant:
     @property
     def man_cost(self):
         return self._man_cost
+
+    @property
+    def t_transition(self):
+        return self._t_transition
 
     @property
     def not_allowed_transitions(self):
@@ -157,6 +165,7 @@ class Plant:
             intervals_per_day=plant_data.get('intervals_per_day'),
             prod_flow=plant_data.get('prod_flow'),
             man_cost=plant_data.get('man_cost'),
+            t_transition=plant_data.get('t_transition'),
             not_allowed_transitions=plant_data.get('not_allowed_transitions'),
             unique_grades=plant_data.get('unique_grades'),
             unique_unit=plant_data.get('unique_unit'),
@@ -176,6 +185,7 @@ class Plant:
             n_units=plant_data.get('n_units'),
             intervals_per_day=plant_data.get('intervals_per_day'),
             prod_flow=plant_data.get('prod_flow'),
+            t_transition=plant_data.get('t_transition'),
             man_cost=plant_data.get('man_cost'),
             not_allowed_transitions=plant_data.get('not_allowed_transitions'),
             unique_grades=plant_data.get('unique_grades'),
@@ -188,6 +198,15 @@ class Plant:
             orders=plant_data.get('orders'),
         )
         return plant
+
+    def update_unique_grades_t_min(self):
+        """
+        Update minimum time to produce at least 1000 tons
+        TODO: Unique grades can produce 1000 tones combined
+        """
+        for grade in self.unique_grades:
+            t_1000_tons = 1000 / self.prod_flow[grade, self.unique_unit]
+            self.t_min[grade] = max(self.t_min[grade], t_1000_tons)
 
     def is_possible_transition(self, grade, time, unit, actual_grade):
         """
@@ -218,6 +237,9 @@ class Plant:
 
     @staticmethod
     def group_orders_by_grade(orders):
+        """
+        returns a dictionary of grade -> set(order_ids)
+        """
         grade2orders = {}
         for order_id, order in orders.items():
             (grade, tons, price, priority) = order
@@ -235,7 +257,7 @@ class RandomPlantData:
 
     @classmethod
     def generate_random_data(cls, seed=None, n_grades=20, n_units=3, intervals_per_day=24, prod_flow_lims=(30, 250),
-                             man_cost_lims=(10, 60), n_not_allowed_max=4, t_min_lims=(1, 15),
+                             man_cost_lims=(10, 60), t_transition_lims=(1, 10), n_not_allowed_max=4, t_min_lims=(1, 15),
                              s_min_lims=(5, 60), only_consecutive_p=0.25,
                              n_orders=2500, orders_tons_lims=(200, 3000), orders_price_lims=(50, 1000),
                              grades_after_10_days_max=10, unique_unit=0):
@@ -258,6 +280,10 @@ class RandomPlantData:
         # manufacturing cost ($ / hour)
         man_cost = RandomPlantData.generate_rand(man_cost_lims, n_grades, n_units)
         plant_data['man_cost'] = man_cost.tolist()
+
+        # Transition times
+        t_transition = RandomPlantData.generate_rand(t_transition_lims, n_grades, n_grades)
+        plant_data['t_transition'] = t_transition.tolist()
 
         # minimum duration
         t_min = RandomPlantData.generate_rand(t_min_lims, n_grades, 1)
