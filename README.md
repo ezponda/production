@@ -1,5 +1,21 @@
 Manufacturing Schedule 
 ==============================
+For finding a planification with [input data](#input-data-format) stored in input/file/path 
+and saving it output/file/path:
+
+```bash
+python main.py --input_file_path input/file/path --output_file_path output/file/path
+```
+For example:
+
+```bash
+python main.py --input_file_path data/example.json --output_file_path data/out.json
+```
+
+For running the tests:
+```bash
+pytest src/test/
+```
 
 Input Data Format
 ------------

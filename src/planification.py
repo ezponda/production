@@ -1,4 +1,5 @@
 import numpy as np
+import json
 from typing import List, Dict, Tuple
 from .plant import Plant
 from .optimization.greedy_simple_group import PlantGreedySimpleGroup
@@ -12,9 +13,9 @@ class Planification:
             horizon: int = 30 * 24,
             # (order_id, grade, start_time, end_time, benefit, revenue)
             orders_plan: Dict[int,
-                              List[Tuple[str, int, int, int, float, float]]] = {},
+                              List[Tuple[str, int, int, int, float, float]]] = None,
             # (grade, start_time)
-            grades_plan: Dict[int, List[Tuple[int, int]]] = {},
+            grades_plan: Dict[int, List[Tuple[int, int]]] = None,
             # TODO: Maintenance stops
     ):
         self.plant = plant
@@ -33,6 +34,7 @@ class Planification:
             self.grades_plan = {i: [] for i in range(self.plant.n_units)}
 
         self.orders_completed = set()
+        self.benefits = 0
 
     def check_feasibility(self):
         raise NotImplementedError('Method not implemented!')
@@ -65,3 +67,15 @@ class Planification:
         self.grades_plan = grades_plan
         self.orders_completed = orders_completed
         self.stocks = stocks
+        self.benefits = self.calculate_benefits()
+
+    def save_data(self, output_file_path):
+        data = {
+            'stocks': self.stocks.tolist(),
+            'orders_plan': self.orders_plan,
+            'grades_plan': self.grades_plan,
+            'orders_completed': list(self.orders_completed),
+            'benefits': self.benefits
+        }
+        with open(output_file_path, 'w') as outfile:
+            json.dump(data, outfile, indent=4, sort_keys=True)

@@ -154,7 +154,7 @@ class Plant:
             new_data = {}
             for k, v in data.items():
                 if isinstance(v, dict) and k != 'orders':
-                    new_data[k] = {int(kk): vv for kk, vv in v.items()}
+                    new_data[k] = {(int(kk) if kk.isdigit() else kk): vv for kk, vv in v.items()}
                 else:
                     new_data[k] = v
             return new_data
