@@ -30,12 +30,14 @@ def _check_10_days_orders(plant, planification):
 def _check_possible_transitions(plant, planification):
     grades_plan = planification.grades_plan
     for unit, unit_plan in grades_plan.items():
+        prev_grade = -1
         for i, (grade, start_time) in enumerate(unit_plan[:-1]):
             next_grade, _ = unit_plan[i + 1]
             not_allowed_grades = plant.not_allowed_transitions[grade]
             assert next_grade not in not_allowed_grades
-            if grade in plant.only_consecutive:
-                assert next_grade not in plant.only_consecutive[grade]
+            if grade in plant.only_predecessor:
+                assert prev_grade == plant.only_predecessor[grade]
+            prev_grade = grade
 
 
 def test_end_to_end_runs():
@@ -53,3 +55,4 @@ def test_end_to_end_runs():
         _check_unique_units(plant, planification)
         _check_minimum_production_times(plant, planification)
         _check_10_days_orders(plant, planification)
+        _check_possible_transitions(plant, planification)
