@@ -212,7 +212,7 @@ class Plant:
         """
         returns True if grade can be produced after actual_grade in unit and time.
         """
-        if time <= 10 * self.intervals_per_day and unit in self.grades_after_10_days:
+        if time <= 10 * self.intervals_per_day and grade in self.grades_after_10_days:
             return False
         elif grade in self.not_allowed_transitions.get(actual_grade, []):
             return False

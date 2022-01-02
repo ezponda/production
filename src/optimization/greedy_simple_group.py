@@ -74,7 +74,7 @@ class UnitGreedySimpleGroup:
         ratio = benefit / time
         return ratio, time, benefit, revenue
 
-    def get_best_grade_order_group(self, grade_orders, time_reg_left=3, time_left=0):
+    def calculate_best_grade_order_group(self, grade_orders, time_reg_left=3, time_left=0):
         """
         time_reg_left: time to have regular production, before this time, price is penalized
         """
@@ -137,7 +137,7 @@ class UnitGreedySimpleGroup:
             if grade not in self.grade2orders:
                 continue
             grade_orders = self.grade2orders[grade] - self.orders_completed
-            best_order_data = self.get_best_grade_order_group(
+            best_order_data = self.calculate_best_grade_order_group(
                 grade_orders, time_reg_left, time_left)
             if best_order_data is None:
                 continue
