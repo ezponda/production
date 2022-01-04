@@ -68,7 +68,7 @@ class UnitGreedySimpleGroup:
         time, cost = self.calculate_order_time_cost(tons, grade)
         time_low = min(time_reg_left, time)
         time_normal = time - time_low
-        price_reduction = (0.7 * (time_low / time) + (time_normal / time))
+        price_reduction = (self.plant.gamma * (time_low / time) + (time_normal / time))
         revenue = price * price_reduction
         benefit = revenue - cost
         ratio = benefit / time
@@ -197,19 +197,18 @@ class UnitGreedySimpleGroup:
 
     def update_stocks(self, grade_change):
         if grade_change and self.actual_grade != -1:
-            # update stocks
-            stock_tons = (math.ceil(self.time) - self.time) * \
-                         self.plant.prod_flow[self.actual_grade, self.unit]
-            self.stocks[self.actual_grade] += stock_tons
-            self.time = math.ceil(self.time)
-        elif grade_change:
             if self.stocks[self.actual_grade] < self.plant.s_min[self.actual_grade]:
                 s_diff = self.plant.s_min[self.actual_grade] - self.stocks[self.actual_grade]
-                t_diff = s_diff / self.plant.prod_flow[self.unit, self.actual_grade]
+                t_diff = s_diff / self.plant.prod_flow[self.actual_grade, self.unit]
                 total_time = math.ceil(self.time + t_diff) - self.time
-                tons = self.plant.prod_flow[self.unit, self.actual_grade] * total_time
+                tons = self.plant.prod_flow[self.actual_grade, self.unit] * total_time
                 self.stocks[self.actual_grade] += tons
                 self.time = math.ceil(self.time + t_diff)
+            else:
+                stock_tons = (math.ceil(self.time) - self.time) * \
+                             self.plant.prod_flow[self.actual_grade, self.unit]
+                self.stocks[self.actual_grade] += stock_tons
+                self.time = math.ceil(self.time)
 
     def obtain_best_solution(self):
         if self.time_left_grade_change > 0 and self.actual_grade != -1:
