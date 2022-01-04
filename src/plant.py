@@ -35,7 +35,9 @@ class Plant:
      s_min: n_grades x 1 np.array (float)
          Minimum safety stock per grade
      t_min: n_grades x 1 np.array (float)
-         Minimum production duration per grade
+         Minimum production duration per grade.
+     gamma: float number in [0, 1]
+         Penalization during initial transition time.
      only_consecutive: Dict[int, int]
      only_predecessor: Dict[int, int]
      grades_after_10_days: List[int]
@@ -56,6 +58,7 @@ class Plant:
             unique_unit: int,
             s_min: List[float],
             t_min: List[float],
+            gamma: float,
             only_consecutive: Dict[int, int],
             only_predecessor: Dict[int, int],
             grades_after_10_days: List[int],
@@ -73,6 +76,7 @@ class Plant:
         self._unique_unit = unique_unit
         self._s_min = np.array(s_min)
         self._t_min = np.array(t_min)
+        self._gamma = gamma
         self._only_consecutive = only_consecutive
         self._only_predecessor = only_predecessor
         # grades that can only be produced after only one grade
@@ -133,6 +137,10 @@ class Plant:
         return self._t_min
 
     @property
+    def gamma(self):
+        return self._gamma
+
+    @property
     def only_consecutive(self):
         return self._only_consecutive
 
@@ -171,6 +179,7 @@ class Plant:
             unique_unit=plant_data.get('unique_unit'),
             s_min=plant_data.get('s_min'),
             t_min=plant_data.get('t_min'),
+            gamma=plant_data.get('gamma'),
             only_consecutive=plant_data.get('only_consecutive'),
             only_predecessor=plant_data.get('only_predecessor'),
             grades_after_10_days=plant_data.get('grades_after_10_days'),
@@ -192,6 +201,7 @@ class Plant:
             unique_unit=plant_data.get('unique_unit'),
             s_min=plant_data.get('s_min'),
             t_min=plant_data.get('t_min'),
+            gamma=plant_data.get('gamma'),
             only_consecutive=plant_data.get('only_consecutive'),
             only_predecessor=plant_data.get('only_predecessor'),
             grades_after_10_days=plant_data.get('grades_after_10_days'),
@@ -257,7 +267,7 @@ class RandomPlantData:
 
     @classmethod
     def generate_random_data(cls, seed=None, n_grades=20, n_units=3, intervals_per_day=24, prod_flow_lims=(30, 250),
-                             man_cost_lims=(10, 60), t_transition_lims=(1, 10), n_not_allowed_max=4, t_min_lims=(1, 15),
+                             man_cost_lims=(10, 60), t_transition_lims=(1, 10), n_not_allowed_max=4, t_min_lims=(1, 20),
                              s_min_lims=(5, 60), only_consecutive_p=0.25,
                              n_orders=2500, orders_tons_lims=(200, 3000), orders_price_lims=(50, 1000),
                              grades_after_10_days_max=10, unique_unit=0):
@@ -292,6 +302,10 @@ class RandomPlantData:
         # minimum stock
         s_min = RandomPlantData.generate_rand(s_min_lims, n_grades, 1)
         plant_data['s_min'] = s_min.flatten().tolist()
+
+        # Initial production penalization
+        gamma = np.random.rand()
+        plant_data['gamma'] = float(gamma)
 
         # only consecutive grade, previous grade => consecutive grade
         # previous grade => consecutive grade

@@ -49,9 +49,13 @@ def test_end_to_end_runs():
             horizon=30 * 24
         )
         planification.calculate_initial_solution()
+        revenue = planification.calculate_revenue()
+        cost = planification.calculate_cost()
+        benefits = planification.calculate_benefits()
         assert set(list(planification.grades_plan.keys())) == set(range(plant.n_units))
-        assert planification.calculate_revenue() >= 0
-        assert planification.calculate_revenue() - planification.calculate_cost() >= 0
+        assert revenue >= 0
+        assert benefits == revenue - cost
+        assert benefits >= 0
         _check_unique_units(plant, planification)
         _check_minimum_production_times(plant, planification)
         _check_10_days_orders(plant, planification)

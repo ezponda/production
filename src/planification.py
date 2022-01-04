@@ -2,13 +2,13 @@ import numpy as np
 import json
 from typing import List, Dict, Tuple
 from .plant import Plant
-from .optimization.greedy_simple_group import PlantGreedySimpleGroup
+from .optimization.greedy_simple_group import PlantGreedyGroup
 
 
 class Planification:
     def __init__(
             self,
-            plant: "Plant",
+            plant: Plant,
             complete: bool = False,
             horizon: int = 30 * 24,
             # (order_id, grade, start_time, end_time, benefit, revenue)
@@ -18,9 +18,9 @@ class Planification:
             grades_plan: Dict[int, List[Tuple[int, int]]] = None,
             # TODO: Maintenance stops
     ):
-        self.plant = plant
-        self.complete = complete
-        self.horizon = horizon
+        self.plant: Plant = plant
+        self.complete: bool = complete
+        self.horizon: int = horizon
         self.stocks = np.zeros(plant.n_grades)
 
         if orders_plan:
@@ -58,7 +58,7 @@ class Planification:
         return cost
 
     def calculate_initial_solution(self):
-        model = PlantGreedySimpleGroup(
+        model = PlantGreedyGroup(
             plant=self.plant,
             horizon=self.horizon,
         )
@@ -78,4 +78,4 @@ class Planification:
             'benefits': self.benefits
         }
         with open(output_file_path, 'w') as outfile:
-            json.dump(data, outfile, indent=4, sort_keys=True)
+            json.dump(data, outfile, indent=2, sort_keys=True)
